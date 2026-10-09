@@ -4,10 +4,10 @@ import sys
 import os
 from aiohttp import web
 from aiogram import Bot, Dispatcher
-from aiogram.filters import Command, CommandObject
+from aiogram.filters import Command
 from aiogram.types import Message
 
-# Вставь сюда свой токен бота от @BotFather
+# Вставь сюда свой актуальный токен бота от @BotFather
 TOKEN = "8754277663:AAErLiAi1Zazsi1m-EL2zOM82uefDBr4e3s"
 
 # Твоя группа отключений
@@ -16,22 +16,22 @@ GROUP_NAME = "6.1"
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
-# Хранилище данных в памяти бота
+# Хранилище состояния и подписчиков
 storage = {
     "last_known_status": True,  # True — свет есть, False — отключен
-    "schedule_text": "📋 Графік поки не встановлено. Очікуйте оновлення."
+    "current_schedule_text": "Графік стабілізаційних відключень для групи 6.1 актуальний."
 }
 
-subscribers = set()  # Список ID пользователей для автоматической рассылки
+subscribers = set()  # Множество ID пользователей для автоматической рассылки
 
 @dp.message(Command("start"))
 async def cmd_start(message: Message):
     subscribers.add(message.chat.id)
     await message.answer(
         f"🤖 Привіт! Бот моніторингу світла для групи **{GROUP_NAME}** активовано.\n\n"
-        "Я автоматично надсилатиму оновлення графіків та сповіщення.\n\n"
+        "Я автоматично надсилатиму сповіщення про зміну стану світла всім підписаним!\n\n"
         "Команди:\n"
-        "/status — перевірити поточний стан та актуальний графік",
+        "/status — перевірити поточний стан та графік",
         parse_mode="Markdown"
     )
 
@@ -42,57 +42,34 @@ async def cmd_status(message: Message):
     await message.answer(
         f"📍 **Група:** {GROUP_NAME}\n"
         f"⚡️ **Статус зараз:** {status_now}\n\n"
-        f"{storage['schedule_text']}",
+        f"📋 **Інформація:**\n{storage['current_schedule_text']}",
         parse_mode="Markdown"
     )
 
-# Команда для обновления графика: /update и текст нового графика
-@dp.message(Command("update"))
-async def cmd_update(message: Message, command: CommandObject):
-    if not command.args:
-        await message.answer(
-            "⚠️ Будь ласка, вкажіть текст графіку після команди.\n"
-            "Приклад:\n`/update 📋 **Графік на сьогодні:**\n08:00 - 12:00 — відключення\n...`",
-            parse_mode="Markdown"
-        )
-        return
-
-    # Сохраняем новый график
-    new_schedule = f"📋 **Актуальний графік (група {GROUP_NAME}):**\n\n{command.args}"
-    storage["schedule_text"] = new_schedule
-
-    # Формируем текст для автоматической рассылки
-    broadcast_text = (
-        f"🔔 **УВАГА! Оновлено графік відключень світла!**\n"
-        f"Група: **{GROUP_NAME}**\n\n"
-        f"{new_schedule}"
-    )
-
-    # Автоматически рассылаем всем подписанным пользователям
-    success_count = 0
+# Функция автоматической рассылки всем пользователям
+async def notify_subscribers(text: str):
     for chat_id in subscribers:
         try:
-            await bot.send_message(chat_id, broadcast_text, parse_mode="Markdown")
-            success_count += 1
+            await bot.send_message(chat_id, text, parse_mode="Markdown")
         except Exception as e:
-            logging.error(f"Не вдалося надіслати сповіщення для {chat_id}: {e}")
+            logging.error(f"Не вдалося надіслати повідомлення для {chat_id}: {e}")
 
-    await message.answer(f"✅ Графік успішно оновлено і розіслано підписникам ({success_count} чол.)!")
-
-# Фоновая проверка состояния (для будущих автоматических доработок)
+# Фоновый процесс
 async def background_checker():
-    await asyncio.sleep(10)
+    await asyncio.sleep(10)  # Пауза при старте
+    
     while True:
         try:
-            # Здесь в будущем можно завязать дополнительную логику
+            # Фоновая логика проверки
             pass
         except Exception as e:
             logging.error(f"Помилка у фоновому завданні: {e}")
-        await asyncio.sleep(300)
+
+        await asyncio.sleep(300)  # Проверка каждые 5 минут
 
 # Веб-сервер для поддержания активности на Render
 async def handle(request):
-    return web.Response(text="DTEK Auto Bot with Schedule is running 24/7!")
+    return web.Response(text="DTEK Auto Bot is running 24/7!")
 
 async def web_server():
     app = web.Application()
