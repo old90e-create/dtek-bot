@@ -139,7 +139,7 @@ async def main():
     logging.basicConfig(level=logging.INFO, stream=sys.stdout)
     asyncio.create_task(web_server())
     asyncio.create_task(background_checker())
-    await dp.start_polling(bot) dp.start_polling(bot)
-
+    await dp.start_polling(bot)
+    
 if __name__ == "__main__":
     asyncio.run(main())
