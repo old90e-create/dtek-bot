@@ -51,7 +51,7 @@ async def cmd_status(message: Message):
 # Функция фоновой автоматической проверки графиков и статуса
 async def background_checker():
     """Фоновая задача, которая раз в несколько минут опрашивает источники графиков ДТЭК"""
-    await asyncio.sleep(5)  г# Пауза перед первым запуском
+    await asyncio.sleep(5)  # Пауза перед первым запуском
     
     while True:
         try:
