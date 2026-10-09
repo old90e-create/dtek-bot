@@ -9,7 +9,7 @@ from aiogram.filters import Command
 from aiogram.types import Message
 
 # Вставь сюда токен своего бота от @BotFather
-TOKEN = "YOUR_TELEGRAM_BOT_TOKEN"
+TOKEN = "8754277663:AAErLiAi1Zazsi1m-EL2zOM82uefDBr4e3s"
 
 # Твоя группа отключений
 GROUP_NAME = "6.1"
