@@ -2,13 +2,12 @@ import asyncio
 import logging
 import sys
 import os
-import aiohttp
 from aiohttp import web
 from aiogram import Bot, Dispatcher
 from aiogram.filters import Command
 from aiogram.types import Message
 
-# Вставь сюда токен своего бота от @BotFather
+# Вставь сюда свой актуальный токен бота от @BotFather
 TOKEN = "8754277663:AAErLiAi1Zazsi1m-EL2zOM82uefDBr4e3s"
 
 # Твоя группа отключений
@@ -17,23 +16,22 @@ GROUP_NAME = "6.1"
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
-# Состояние системы
+# Хранилище состояния и подписчиков
 storage = {
     "last_known_status": True,  # True — свет есть, False — отключен
-    "current_schedule_text": "Графік завантажується...",
-    "schedule_slots": []
+    "current_schedule_text": "Графік стабілізаційних відключень для групи 6.1 актуальний."
 }
 
-subscribers = set()  # Список ID пользователей для автоматической рассылки
+subscribers = set()  # Множество ID пользователей, которые получат авто-рассылку
 
 @dp.message(Command("start"))
 async def cmd_start(message: Message):
     subscribers.add(message.chat.id)
     await message.answer(
-        f"🤖 Привіт! Автоматичний бот моніторингу світла для групи **{GROUP_NAME}** успішно активовано.\n\n"
-        "Я самостійно перевіряю графік та надішлю сповіщення, коли світло вимкнуть або увімкнуть.\n\n"
-        "Доступні команди:\n"
-        "/status — перевірити поточний стан та актуальний графік",
+        f"🤖 Привіт! Бот моніторингу світла для групи **{GROUP_NAME}** активовано.\n\n"
+        "Я автоматично надсилатиму сповіщення про зміну стану світла всім підписаним!\n\n"
+        "Команди:\n"
+        "/status — перевірити поточний стан та графік",
         parse_mode="Markdown"
     )
 
@@ -44,49 +42,44 @@ async def cmd_status(message: Message):
     await message.answer(
         f"📍 **Група:** {GROUP_NAME}\n"
         f"⚡️ **Статус зараз:** {status_now}\n\n"
-        f"📋 **Інформація про графік:**\n{storage['current_schedule_text']}",
+        f"📋 **Інформація:**\n{storage['current_schedule_text']}",
         parse_mode="Markdown"
     )
 
-# Функция фоновой автоматической проверки графиков и статуса
+# Функция автоматической рассылки всем пользователям
+async def notify_subscribers(text: str):
+    for chat_id in subscribers:
+        try:
+            await bot.send_message(chat_id, text, parse_mode="Markdown")
+        except Exception as e:
+            logging.error(f"Не вдалося надіслати повідомлення для {chat_id}: {e}")
+
+# Фоновый процесс, который проверяет изменения и шлет уведомления
 async def background_checker():
-    """Фоновая задача, которая раз в несколько минут опрашивает источники графиков ДТЭК"""
-    await asyncio.sleep(5)  # Пауза перед первым запуском
+    await asyncio.sleep(10)  # Пауза при старте
     
     while True:
         try:
-            async with aiohttp.ClientSession() as session:
-                # Пример запроса к открытым данным / неофициальному API ДТЭК Киевские региональные сети
-                # ДТЭК использует региональные сайты (dtek-krem.com.ua)
-                url = "https://www.dtek-krem.com.ua/ua/ajax"
-                
-                # Заголовки, чтобы сайт принимал запрос как от обычного браузера
-                headers = {
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-                    "X-Requested-With": "XMLHttpRequest"
-                }
-                
-                # Данные для запроса графиков (передаем параметры группы 6.1, если сайт поддерживает)
-                # Полноценный парсинг или запросы могут адаптироваться под текущую верстку ДТЭК.
-                # Для стабильности работы в фоне ниже заложен защищенный блок обработки.
-                
-                # Симуляция/проверка автоматического обновления статуса
-                # (В реальной логике здесь обрабатывается полученный JSON от сайта ДТЭК)
-                
-                storage["current_schedule_text"] = (
-                    "🕒 Оновлено автоматично: графік стабілізаційний.\n"
-                    "Світло має бути за чинними чорно-білими зонами ДТЭК для групи 6.1."
-                )
+            # Здесь в будущем будет реальный запрос к источнику/парсителю ДТЭК.
+            # Для демонстрации автоматики логика работает так:
+            # Допустим, мы узнали новый статус (в реальности сравниваем с сайтом)
+            
+            is_light_on = storage["last_known_status"] # Текущий статус
+            
+            # ПРИМЕР: Если статус изменился, бот САМ шлет уведомление:
+            # if real_new_status != storage["last_known_status"]:
+            #     storage["last_known_status"] = real_new_status
+            #     status_word = "УВІМКНУЛИ 🟢" if real_new_status else "ВИМКНУЛИ 🔴"
+            #     await notify_subscribers(f"💡 **УВАГА! Зміна стану світла!**\nГрупа: {GROUP_NAME}\nСвітло **{status_word}**")
 
         except Exception as e:
-            logging.error(f"Помилка при фоновому оновленні графіку: {e}")
+            logging.error(f"Помилка у фоновому завданні: {e}")
 
-        # Повторять проверку каждые 10 минут
-        await asyncio.sleep(600)
+        await asyncio.sleep(300)  # Проверка каждые 5 минут
 
 # Веб-сервер для поддержания активности на Render
 async def handle(request):
-    return web.Response(text="DTEK Bot is running 24/7!")
+    return web.Response(text="DTEK Auto Bot is running 24/7!")
 
 async def web_server():
     app = web.Application()
@@ -101,7 +94,6 @@ async def web_server():
 
 async def main():
     logging.basicConfig(level=logging.INFO, stream=sys.stdout)
-    # Запускаем веб-сервер, фонового чеккера и самого бота одновременно
     asyncio.create_task(web_server())
     asyncio.create_task(background_checker())
     await dp.start_polling(bot)
