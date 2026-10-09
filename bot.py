@@ -1,8 +1,11 @@
+Python
 import asyncio
 import logging
 import sys
+import os
+from aiohttp import web
 from aiogram import Bot, Dispatcher, types
-from aiogram.filters import Command, CommandObject
+from aiogram.filters import Command
 from aiogram.types import Message
 
 # Вставь сюда токен своего бота от @BotFather
@@ -15,7 +18,6 @@ bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
 # Хранилище данных в памяти бота
-# В реальной работе можно вынести в легкий JSON-файл или мини-базу, но для облака на первое время сойдет и память
 storage = {
     "last_known_status": True,  # True — свет есть, False — отключен
     "schedule": {
@@ -37,7 +39,7 @@ async def cmd_start(message: Message):
         f"🤖 Привіт! Бот моніторингу світла для групи **{GROUP_NAME}** активовано.\n\n"
         "Команди:\n"
         "/status — перевірити поточний стан та графік\n"
-        "/set_on — позначити, що світло УВІМКНУЛИ (для тестів/ручного оновлення)\n"
+        "/set_on — позначити, що світло УВІМКНУЛИ\n"
         "/set_off — позначити, що світло ВИМКНУЛИ",
         parse_mode="Markdown"
     )
@@ -60,16 +62,15 @@ async def cmd_status(message: Message):
 
 @dp.message(Command("set_on"))
 async def cmd_set_on(message: Message):
-    await update_light_status(True, source="ручне оновлення")
+    await update_light_status(True)
     await message.answer("✅ Статус змінено: світло УВІМКНЕНО. Підписникам надіслано сповіщення.")
 
 @dp.message(Command("set_off"))
 async def cmd_set_off(message: Message):
-    await update_light_status(False, source="ручне оновлення")
+    await update_light_status(False)
     await message.answer("⚠️ Статус змінено: світло ВИМКНЕНО. Підписникам надіслано сповіщення.")
 
-# Функция изменения статуса и рассылки уведомлений всем участникам
-async def update_light_status(is_on: bool, source: str = ""):
+async def update_light_status(is_on: bool):
     if storage["last_known_status"] != is_on:
         storage["last_known_status"] = is_on
         
@@ -86,8 +87,26 @@ async def update_light_status(is_on: bool, source: str = ""):
             except Exception as e:
                 logging.error(f"Не вдалося надіслати повідомлення для {chat_id}: {e}")
 
-async def main():
+# Простой веб-сервер для Render (чтобы хостинг видел, что сервис живой)
+async def handle(request):
+    return web.Response(text="Bot is running!")
+
+async def web_server():
+    app = web.Application()
+    app.router.add_get("/", handle)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    
+    # Render передает порт через переменную окружения PORT, по умолчанию берем 10000
+    port = int(os.environ.get("PORT", 10000))
+    site = web.TCPSite(runner, "0.0.0.0", port)
+    await site.start()
     logging.basicConfig(level=logging.INFO, stream=sys.stdout)
+    logging.info(f"Web server started on port {port}")
+
+async def main():
+    # Запускаем веб-сервер и телеграм-бота одновременно
+    await web_server()
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
