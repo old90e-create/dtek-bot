@@ -102,7 +102,7 @@ async def handle_state_change(new_status: bool):
 
 # Фоновый автоматический процесс проверки данных 24/7
 async def background_checker():
-    await asyncio.sleep(15)  г# Пауза при старте
+    await asyncio.sleep(15)  # Пауза при старте
     
     while True:
         try:
